@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # Frontend (Vite build served by nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app-network
+
+  # Backend (Express API)
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    expose:
+      - "3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - BOT_TOKEN=${BOT_TOKEN:?BOT_TOKEN is required}
+      - WEBAPP_URL=${WEBAPP_URL:-https://tictactoe-app.ru.tuna.am}
+      - USERS_FILE=/app/data/users.json
+    volumes:
+      - backend-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app-network
+
+  # Tuna tunnel for frontend
+  tuna-frontend:
+    build:
+      context: ./tuna
+      dockerfile: Dockerfile
+    environment:
+      - TUNA_TOKEN=${TUNA_TOKEN:?TUNA_TOKEN is required}
+      - TUNA_TARGET=frontend:80
+      - TUNA_SUBDOMAIN=${TUNA_FRONTEND_SUBDOMAIN:-tictactoe-app}
+    depends_on:
+      - frontend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Tuna tunnel for backend
+  tuna-backend:
+    build:
+      context: ./tuna
+      dockerfile: Dockerfile
+    environment:
+      - TUNA_TOKEN=${TUNA_TOKEN:?TUNA_TOKEN is required}
+      - TUNA_TARGET=backend:3001
+      - TUNA_SUBDOMAIN=${TUNA_BACKEND_SUBDOMAIN:-tictactoe-api}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  backend-data:
+
+networks:
+  app-network:
+    driver: bridge
