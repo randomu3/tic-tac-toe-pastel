@@ -1,18 +1,16 @@
-const requiredEnvVars = ['BOT_TOKEN'] as const;
-
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
-  }
-}
+const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST;
 
 export const config = {
   port: parseInt(process.env.PORT || '3001'),
-  botToken: process.env.BOT_TOKEN!,
+  botToken: process.env.BOT_TOKEN || (isTest ? 'test_token' : ''),
   webappUrl: process.env.WEBAPP_URL || 'http://localhost:3000',
   backendUrl: process.env.BACKEND_URL || 'http://localhost:3001',
   usersFile: process.env.USERS_FILE || 'data/users.json',
 };
+
+if (!isTest && !config.botToken) {
+  throw new Error('Missing required environment variable: BOT_TOKEN');
+}
 
 export const HEARTS_PACKAGES = {
   hearts_100: { stars: 10, hearts: 100, title: '100 Hearts 💝' },
